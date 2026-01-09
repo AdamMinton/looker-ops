@@ -105,3 +105,6 @@ roles:
 - name: Marketplace Automation (4a66e5)
   permission_set: Marketplace Automation (4a66e5)
   model_set: All
+- name: Finance User
+  permission_set: User
+  model_set: Finance Models
