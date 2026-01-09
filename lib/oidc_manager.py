@@ -1,4 +1,5 @@
 from looker_sdk import models40 as models
+import logging
 import copy
 from .utils import resolve_secret
 
@@ -19,26 +20,16 @@ class OIDCManager:
              cfg['secret'] = resolve_secret(secret_var)
         
         # Flatten user_attribute_map
-        # API expects user_attribute_map_email, etc.
         attr_map = cfg.pop('user_attribute_map', None)
         if attr_map and isinstance(attr_map, dict):
-            # Only map known fields to avoid TypeError in OIDCConfig
             allowed_attrs = ['email', 'first_name', 'last_name']
             for k, v in attr_map.items():
                 if k in allowed_attrs:
                      cfg[f'user_attribute_map_{k}'] = v
-                # Custom attributes handling would differ (likely user_attributes_with_ids)
-                # For now, we ignore unknown keys to prevent crashes.
 
         # Map mirrored_groups -> groups_with_role_ids
         mirrored = cfg.pop('mirrored_groups', None)
         if mirrored:
-            # We need to resolve Role Names to IDs here too, otherwise Diff will show "names vs ids" mismatch
-            # or we need to standardize on IDs for the internal model comparison.
-            # Ideally we fetch roles once. But this method is called before get_diff logic.
-            # Best place is to resolve it here if we can instantiate SDK?
-            # self.sdk is available.
-            
             try:
                 all_roles = self.sdk.all_roles()
                 role_map = {r.name: r.id for r in all_roles}
@@ -46,22 +37,18 @@ class OIDCManager:
                 for m in mirrored:
                     if 'roles' in m:
                         r_ids = []
-                        for r_name in m.pop('roles'): # Remove 'roles' key, replace with 'role_ids'
+                        for r_name in m.pop('roles'):
                             if r_name in role_map:
                                 r_ids.append(role_map[r_name])
-                            else:
-                                # We can't print warning easily here without spamming?
-                                pass 
                         m['role_ids'] = r_ids
             except Exception as e:
-                # If SDK fails (e.g. connectivity) strictly here, we might just pass through
-                print(f"Warning: Could not resolve role names: {e}")
+                logging.warning(f"Could not resolve role names: {e}")
 
             cfg['groups_with_role_ids'] = mirrored
 
         # Remove unsupported fields
-        cfg.pop('display_name', None) # Not supported in OIDCConfig
-        cfg.pop('client_secret', None) # Ensure we don't pass this if it was in yaml
+        cfg.pop('display_name', None)
+        cfg.pop('client_secret', None)
              
         return cfg
 
@@ -72,17 +59,15 @@ class OIDCManager:
         
         target_data = self._map_yaml_to_model(config)
         
-        # Fetch current
         try:
             current = self.sdk.oidc_config()
         except Exception as e:
-            # If failed, return error as a diff for now
-            print(f"Error fetching OIDC config: {e}")
+            logging.error(f"Error fetching OIDC config: {e}")
             return []
 
         # Compare
         changes = []
-        ignore_fields = ['secret', 'url', 'can', 'modified_at', 'modified_by'] # url/can/modified are SDK/system fields
+        ignore_fields = ['secret', 'url', 'can', 'modified_at', 'modified_by']
         
         for key, target_val in target_data.items():
              if key in ignore_fields: continue
@@ -91,69 +76,40 @@ class OIDCManager:
                  current_val = getattr(current, key)
                  
                  if key == 'scopes':
-                     # Sort scopes for consistent string comparison
                      if isinstance(target_val, list) and isinstance(current_val, list):
                          target_val = sorted(target_val)
                          current_val = sorted(current_val)
 
                  if key == 'groups_with_role_ids':
-                     # Special comparison for list of objects vs list of dicts
-                     # We convert current_val (Models) to clean dicts (no IDs) for comparison
-                     # This is a 'best effort' equality check
                      if isinstance(current_val, list) and isinstance(target_val, list):
                          current_clean = []
                          for g in current_val:
-                             # Convert model to dict, ignore 'id', 'looker_group_id'
-                             # g is an OIDCGroupWrite/Read object
-                             # looker_sdk models usually implement __dict__ or comparable
-                             # but easiest is to specific keys we care about
                              c_item = {
                                  'name': g.name,
-                                 # 'looker_group_name': g.looker_group_name, # Name is unreliable for diff if we use ID
-                                 # 'looker_group_id': g.looker_group_id, # System assigned, ignore for diff
-                                 'role_ids': g.role_ids or [] # Normalise None to []
+                                 'role_ids': g.role_ids or []
                              }
-                             # Sometimes ID changes on update, or we don't care if names match
-                             # Let's trust that if we set it, it's correct.
-                             # But here we see a diff loop because maybe '9' vs '2'?
-                             # Wait, why is it '9'? 
-                             # User requested '2'.
-                             # API might return a new internal ID for the mapping itself (the 'id' field, not 'looker_group_id')
-                             # But here we compare 'looker_group_id'.
-                             
                              current_clean.append(c_item)
                          
-                         # Also ensure target_val has defaults
                          target_clean = []
                          for t in target_val:
                              t_clean = {
                                  'name': t.get('name'),
-                                 # 'looker_group_name': t.get('looker_group_name'),
-                                 # 'looker_group_id': t.get('looker_group_id'),
                                  'role_ids': t.get('role_ids', [])
                              }
                              target_clean.append(t_clean)
                          
-                         # Sort by name to be order independent?
-                         # Assuming name is unique
                          current_clean.sort(key=lambda x: x.get('name') or '')
                          target_clean.sort(key=lambda x: x.get('name') or '')
                          
                          if current_clean != target_clean:
                              changes.append(f"{key}: {current_clean} -> {target_clean}")
                      else:
-                         # Fallback
                          if str(current_val) != str(target_val):
                              changes.append(f"{key}: '{current_val}' -> '{target_val}'")
                      continue
 
                  if str(current_val) != str(target_val):
                      changes.append(f"{key}: '{current_val}' -> '{target_val}'")
-        
-        # Secret handling
-        # Only update secret if explicitly needed or if other things changed?
-        # OIDC config update is a singleton update.
-        # If we have changes, we apply them.
         
         if changes:
             diffs.append({
@@ -168,21 +124,18 @@ class OIDCManager:
     def apply_changes(self, diffs):
         for diff in diffs:
             if diff['action'] == 'UPDATE':
-                print("Updating OIDC Configuration...")
+                logging.info("Updating OIDC Configuration...")
                 cfg = diff['config']
                 
-                # Fetch current config to check for existing IDs
                 try:
                     current_conf = self.sdk.oidc_config()
                     current_groups = current_conf.groups_with_role_ids or []
-                    # Create a map of name -> id
                     existing_ids = {g.name: g.id for g in current_groups if g.name and g.id}
                 except:
                     existing_ids = {}
 
                 groups_data = cfg.get('groups_with_role_ids')
                 if groups_data and isinstance(groups_data, list):
-                    # Fetch all roles for name resolution if needed
                     all_roles = self.sdk.all_roles()
                     role_map = {r.name: r.id for r in all_roles}
                     
@@ -196,12 +149,7 @@ class OIDCManager:
                                      if r_name in role_map:
                                          resolved_ids.append(role_map[r_name])
                                      else:
-                                         print(f"WARNING: Role '{r_name}' not found for group '{g.get('name')}'. Skipping.")
-                                 
-                                 # Merge with any existing role_ids or overwrite?
-                                 # Let's assume 'roles' supersedes 'role_ids' if present, or we combine.
-                                 # Implementation Plan said "Deprecate role_ids in favor of roles".
-                                 # We'll use the resolved list.
+                                         logging.warning(f"Role '{r_name}' not found for group '{g.get('name')}'. Skipping.")
                                  g['role_ids'] = resolved_ids
                                  
                              # Only pass valid fields to OIDCGroupWrite
@@ -217,12 +165,11 @@ class OIDCManager:
                              group_objs.append(g)
                     cfg['groups_with_role_ids'] = group_objs
 
-                # clean cfg?
                 clean_cfg = {k: v for k, v in cfg.items() if v is not None}
                 
                 try:
                     conf = models.OIDCConfig(**clean_cfg)
                     self.sdk.update_oidc_config(body=conf)
-                    print("Success: Updated OIDC Config")
+                    logging.info("Success: Updated OIDC Config")
                 except Exception as e:
-                    print(f"Failed to update OIDC Config: {e}")
+                    logging.error(f"Failed to update OIDC Config: {e}")

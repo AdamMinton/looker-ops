@@ -11,15 +11,12 @@ class RoleManager:
 
     def _load_current_state(self):
         """Fetch all existing sets and roles to build ID maps."""
-        # Permission Sets
         for ps in self.sdk.all_permission_sets():
             self.perm_set_map[ps.name] = ps.id
         
-        # Model Sets
         for ms in self.sdk.all_model_sets():
             self.model_set_map[ms.name] = ms.id
             
-        # Roles
         for r in self.sdk.all_roles():
             self.role_map[r.name] = r.id
 
@@ -53,7 +50,6 @@ class RoleManager:
             target_perms = sorted(ps_cfg['permissions'])
             
             if ps_name in self.perm_set_map:
-                # Check updates
                 current_ps = self.sdk.permission_set(self.perm_set_map[ps_name])
                 current_perms = sorted(current_ps.permissions or [])
                 
@@ -99,8 +95,6 @@ class RoleManager:
                 })
 
         # 3. Roles
-        # NOTE: We can't fully validate Role linkage diffs until IDs are resolved (logic split)
-        # But for 'check', we can optimistically assume creation or check existing if mapped.
         for r_cfg in config_data.get('roles', []):
             r_name = r_cfg['name']
             target_ps_name = r_cfg.get('permission_set')
@@ -109,34 +103,9 @@ class RoleManager:
             if r_name in self.role_map:
                 current_r = self.sdk.role(self.role_map[r_name])
                 
-                # Compare Names of linked sets (requires fetching the sets attached to role if names aren't in role obj)
-                # Role object has permission_set_id and model_set_id
-                # We need to reverse lookup ID -> Name to compare nicely, OR fetch the sets.
-                # Simplest: Fetch sets by ID from current role
-                
                 curr_ps_id = current_r.permission_set.id if current_r.permission_set else None
                 curr_ms_id = current_r.model_set.id if current_r.model_set else None
                 
-                # Check mapping (Inverse lookup or fetch)
-                # Optimization: We already fetched all sets in _load_current_state, but we only stored Name->ID.
-                # Let's trust the ID map we built.
-                
-                # We need to know if target_ps_name resolves to curr_ps_id
-                # BUT, if we are creating new sets, they don't have IDs yet.
-                # So for diffing, we assume:
-                # If target Set is NEW, Role WILL change.
-                # If target Set EXISTS, we check if Role points to it.
-                
-                # This is tricky in 'check' phase.
-                # We can output "Will link to Permission Set 'X'"
-                
-                # For now, let's just show intent.
-                pass
-                # Constructing meaningful diff for Roles requires nuanced logic. 
-                # Let's defer strict Role diffing to "Compare with current configuration"
-                
-                # Simple check: Does currently assigned Permission Set Name match target?
-                # We need ID -> Name map
                 id_to_perm_name = {v: k for k, v in self.perm_set_map.items()}
                 id_to_model_name = {v: k for k, v in self.model_set_map.items()}
                 
@@ -179,7 +148,7 @@ class RoleManager:
         # 1. Apply Permission Sets
         for diff in diffs:
             if diff['action'] == 'CREATE_PERM_SET':
-                print(f"Creating Permission Set '{diff['name']}'...")
+                logging.info(f"Creating Permission Set '{diff['name']}'...")
                 cfg = diff['config']
                 new_ps = self.sdk.create_permission_set(
                     body=models.PermissionSet(
@@ -187,10 +156,10 @@ class RoleManager:
                         permissions=cfg['permissions']
                     )
                 )
-                self.perm_set_map[new_ps.name] = new_ps.id # Update map for Roles
+                self.perm_set_map[new_ps.name] = new_ps.id
                 
             elif diff['action'] == 'UPDATE_PERM_SET':
-                print(f"Updating Permission Set '{diff['name']}'...")
+                logging.info(f"Updating Permission Set '{diff['name']}'...")
                 cfg = diff['config']
                 self.sdk.update_permission_set(
                     permission_set_id=diff['id'],
@@ -202,7 +171,7 @@ class RoleManager:
         # 2. Apply Model Sets
         for diff in diffs:
             if diff['action'] == 'CREATE_MODEL_SET':
-                print(f"Creating Model Set '{diff['name']}'...")
+                logging.info(f"Creating Model Set '{diff['name']}'...")
                 cfg = diff['config']
                 new_ms = self.sdk.create_model_set(
                     body=models.ModelSet(
@@ -210,10 +179,10 @@ class RoleManager:
                         models=cfg['models']
                     )
                 )
-                self.model_set_map[new_ms.name] = new_ms.id # Update map
+                self.model_set_map[new_ms.name] = new_ms.id
                 
             elif diff['action'] == 'UPDATE_MODEL_SET':
-                print(f"Updating Model Set '{diff['name']}'...")
+                logging.info(f"Updating Model Set '{diff['name']}'...")
                 cfg = diff['config']
                 self.sdk.update_model_set(
                     model_set_id=diff['id'],
@@ -226,15 +195,14 @@ class RoleManager:
         for diff in diffs:
             if diff['action'] in ['CREATE_ROLE', 'UPDATE_ROLE']:
                 cfg = diff['config']
-                # Resolve IDs now that Sets assume created/updated
                 try:
                     ps_id, ms_id = self._resolve_ids(cfg)
                 except ValueError as e:
-                    print(f"Error resolving dependencies for Role '{cfg['name']}': {e}")
+                    logging.error(f"Error resolving dependencies for Role '{cfg['name']}': {e}")
                     continue
 
                 if diff['action'] == 'CREATE_ROLE':
-                    print(f"Creating Role '{diff['name']}'...")
+                    logging.info(f"Creating Role '{diff['name']}'...")
                     self.sdk.create_role(
                         body=models.Role(
                             name=cfg['name'],
@@ -243,7 +211,7 @@ class RoleManager:
                         )
                     )
                 elif diff['action'] == 'UPDATE_ROLE':
-                    print(f"Updating Role '{diff['name']}'...")
+                    logging.info(f"Updating Role '{diff['name']}'...")
                     self.sdk.update_role(
                         role_id=diff['id'],
                         body=models.Role(

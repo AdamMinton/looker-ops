@@ -1,16 +1,26 @@
 import os
+import logging
+import sys
+
+def setup_logging(level=logging.INFO):
+    """Configures the root logger."""
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        stream=sys.stdout
+    )
 
 def resolve_secret(env_var_name: str) -> str:
     """
     Resolves a secret from an environment variable.
-    Returns None if the env var is not set, which might be okay for dry runs 
-    if we just want to flag it, but for apply we need it.
+    Returns None if the env var is not set.
     """
     if not env_var_name:
         return None
     val = os.environ.get(env_var_name)
     if val is None:
-        print(f"WARNING: Environment variable '{env_var_name}' is not set.")
+        logging.warning(f"Environment variable '{env_var_name}' is not set.")
     return val
 
 def format_diff(action: str, resource_type: str, resource_name: str, changes: list) -> str:

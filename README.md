@@ -17,14 +17,17 @@ looker-ops/
 ├── lib/                           # Core Logic
 │   ├── connection_manager.py      # Diff/Apply logic for Database Connections
 │   ├── oidc_manager.py            # Diff/Apply logic for OIDC Auth
+│   ├── role_manager.py            # Diff/Apply logic for Roles/Permissions
 │   └── utils.py                   # Helper functions (Config parsing, Secret resolution)
 ├── environments/                  # Environment-specific Configurations
 │   ├── dev/
 │   │   ├── connections.yaml
-│   │   └── oidc.yaml
+│   │   ├── oidc.yaml
+│   │   └── roles.yaml
 │   └── prod/
 │       ├── connections.yaml
-│       └── oidc.yaml
+│       ├── oidc.yaml
+│       └── roles.yaml
 ├── requirements.txt               # Python Dependencies
 └── .github/
     └── workflows/
