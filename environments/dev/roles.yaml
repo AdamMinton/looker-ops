@@ -1,27 +1,107 @@
-# 1. Permission Sets
-# Triggering CI Test
 permission_sets:
-  - name: "Finance User Perms"
-    permissions:
-      - "access_data"
-      - "see_looks"
-      - "see_user_dashboards"
-      - "explore"
-  - name: "Finance User Perms 2"
-    permissions:
-      - "access_data"
-      - "see_looks"
-      - "see_user_dashboards"
-      - "explore"
-
-# 2. Model Sets
+- name: User
+  permissions:
+  - access_data
+  - can_create_forecast
+  - clear_cache_refresh
+  - create_custom_fields
+  - create_table_calculations
+  - download_without_limit
+  - explore
+  - manage_spaces
+  - mobile_app_access
+  - save_content
+  - save_dashboards
+  - save_looks
+  - schedule_look_emails
+  - see_drill_overlay
+  - see_lookml
+  - see_lookml_dashboards
+  - see_looks
+  - see_sql
+  - see_user_dashboards
+  - send_to_integration
+  - upload_data
+- name: Developer
+  permissions:
+  - access_data
+  - can_create_forecast
+  - clear_cache_refresh
+  - create_custom_fields
+  - create_table_calculations
+  - deploy
+  - develop
+  - download_without_limit
+  - explore
+  - manage_spaces
+  - mobile_app_access
+  - save_content
+  - save_dashboards
+  - save_looks
+  - schedule_look_emails
+  - see_drill_overlay
+  - see_lookml
+  - see_lookml_dashboards
+  - see_looks
+  - see_pdts
+  - see_sql
+  - see_user_dashboards
+  - send_to_integration
+  - upload_data
+  - use_sql_runner
+- name: Viewer
+  permissions:
+  - access_data
+  - clear_cache_refresh
+  - download_without_limit
+  - mobile_app_access
+  - schedule_look_emails
+  - see_drill_overlay
+  - see_lookml_dashboards
+  - see_looks
+  - see_user_dashboards
+  - send_to_integration
+- name: Conversational Analytics User
+  permissions:
+  - access_data
+  - chat_with_agent
+  - gemini_in_looker
+- name: Conversational Analytics Agent Manager
+  permissions:
+  - access_data
+  - chat_with_agent
+  - chat_with_explore
+  - gemini_in_looker
+  - save_agents
+  - upload_data
+- name: Marketplace Automation (4a66e5)
+  permissions:
+  - deploy
+  - develop
+  - manage_models
 model_sets:
-  - name: "Finance Models"
-    models:
-      - "thelook" # Using 'thelook' as it likely exists or is harmless model name for sample
-
-# 3. Roles
+- name: Finance Models
+  models:
+  - thelook
 roles:
-  - name: "Finance Analyst"
-    permission_set: "Finance User Perms"
-    model_set: "Finance Models"
+- name: Admin
+  permission_set: Admin
+  model_set: All
+- name: User
+  permission_set: User
+  model_set: All
+- name: Developer
+  permission_set: Developer
+  model_set: All
+- name: Viewer
+  permission_set: Viewer
+  model_set: All
+- name: Conversational Analytics User
+  permission_set: Conversational Analytics User
+  model_set: All
+- name: Conversational Analytics Agent Manager
+  permission_set: Conversational Analytics Agent Manager
+  model_set: All
+- name: Marketplace Automation (4a66e5)
+  permission_set: Marketplace Automation (4a66e5)
+  model_set: All

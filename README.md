@@ -7,6 +7,7 @@ This repository contains a **GitOps** solution for managing Looker instance conf
 *   **Idempotency**: The tool compares your local YAML configuration against the actual Looker instance state. It only triggers API calls when a legitimate change is detected.
 *   **Multi-Environment Support**: Manage disjoint environments (e.g., `dev`, `prod`) with separate configuration trees while sharing the same management logic.
 *   **Secure**: Secrets (passwords, private keys) are **never** stored in plain text. They are referenced by Environment Variable names in the configuration and resolved at runtime.
+*   **Safe RBAC Deletion**: Removes roles and permission sets that are no longer in your configuration, with built-in safeguards to protect critical system resources (e.g., Admin, Support roles).
 *   **CI/CD Integrated**: Designed to run within GitHub Actions, providing "Plan" (PR comments) and "Apply" (Merge to Main) workflows.
 
 ## 📂 Project Structure
@@ -148,7 +149,19 @@ roles:
   - name: "Finance Analyst"
     permission_set: "Finance User Perms" # Referenced by Name
     model_set: "Finance Models"          # Referenced by Name
+# 3. Roles
+roles:
+  - name: "Finance Analyst"
+    permission_set: "Finance User Perms" # Referenced by Name
+    model_set: "Finance Models"          # Referenced by Name
 ```
+
+### ⚠️ Deletions & Safety
+**Removing** a Role, Permission Set, or Model Set from `roles.yaml` will trigger a **Deletion** in Looker.
+However, strict safety rules are enforced:
+*   **Admin Role**: The `Admin` role is never deleted and its definition (sets) cannot be updated via this tool.
+*   **Support Roles**: Roles like `Support Basic Editor`, `Gemini`, etc., are protected from deletion.
+*   **System Sets**: The `Admin` Permission Set and `All` Model Set are protected.
 
 ## 🔐 Secret Management
 
@@ -186,6 +199,16 @@ Apply the configuration to the Looker instance.
 ```bash
 # Apply to 'dev'
 python main.py --apply --config-dir environments/dev
+```
+
+## 🧪 Unit Testing
+
+The project includes a comprehensive unit test suite covering `RoleManager`, `ConnectionManager`, and `OIDCManager`.
+To run the tests:
+
+```bash
+# Run all tests
+python -m unittest discover tests
 ```
 
 ## 🤖 CI/CD Pipeline (GitHub Actions)

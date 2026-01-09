@@ -32,5 +32,7 @@ def format_diff(action: str, resource_type: str, resource_name: str, changes: li
         return f"[+] {action} {resource_type} '{resource_name}'" + (f": {changes}" if changes else "")
     elif action.startswith('UPDATE'):
         return f"[~] {action} {resource_type} '{resource_name}':\n    - " + "\n    - ".join(changes.split(', ')) if isinstance(changes, str) else changes
+    elif action.startswith('DELETE'):
+        return f"[-] {action} {resource_type} '{resource_name}'" + (f": {changes}" if changes else "")
     else:
          return f"    {resource_type} '{resource_name}': No changes ({action})"

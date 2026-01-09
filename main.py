@@ -93,7 +93,13 @@ def main():
             print("No changes detected for Roles.")
         else:
              for item in roles_diff:
-                print(format_diff(item['action'], 'Role Object', item['name'], item['changes']))
+                rtype = 'Role'
+                if 'PERM_SET' in item['action']:
+                    rtype = 'Permission Set'
+                elif 'MODEL_SET' in item['action']:
+                    rtype = 'Model Set'
+                
+                print(format_diff(item['action'], rtype, item['name'], item['changes']))
 
     # APPLY PHASE
     if args.apply:
