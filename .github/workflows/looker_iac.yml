@@ -55,7 +55,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `### 📋 Looker Configuration Plan (${env})\n\n```diff\n` + plan + `\n````
+                body: `### 📋 Looker Configuration Plan (${env})\n\n\`\`\`diff\n` + plan + `\n\`\`\`
               });
             } catch (err) {
               console.log("Error reading plan output or posting comment:", err);
