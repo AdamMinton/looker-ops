@@ -1,0 +1,89 @@
+name: Looker Configuration Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  plan:
+    name: 'Plan: ${{ matrix.environment }}'
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    environment: ${{ matrix.environment }}
+    env:
+      # Secrets are now scoped to the environment automatically
+      LOOKERSDK_BASE_URL: ${{ secrets.LOOKER_URL }}
+      LOOKERSDK_CLIENT_ID: ${{ secrets.LOOKER_CLIENT_ID }}
+      LOOKERSDK_CLIENT_SECRET: ${{ secrets.LOOKER_CLIENT_SECRET }}
+      SNOWFLAKE_PROD_PASSWORD: ${{ secrets.SNOWFLAKE_PROD_PASSWORD }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Dry Run (Plan)
+        id: plan
+        run: |
+          echo "Planning for environment: ${{ matrix.environment }}"
+          python main.py --check --config-dir environments/${{ matrix.environment }} > plan_output_${{ matrix.environment }}.txt 2>&1
+          cat plan_output_${{ matrix.environment }}.txt
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const env = '${{ matrix.environment }}';
+            try {
+              const plan = fs.readFileSync(`plan_output_${env}.txt`, 'utf8');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `### 📋 Looker Configuration Plan (${env})\n\n\`\`\`diff\n` + plan + `\n\`\`\``
+              });
+            } catch (err) {
+              console.log("Error reading plan output or posting comment:", err);
+            }
+
+  apply:
+    name: 'Apply: ${{ matrix.environment }}'
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    environment: ${{ matrix.environment }}
+    env:
+      LOOKERSDK_BASE_URL: ${{ secrets.LOOKER_URL }}
+      LOOKERSDK_CLIENT_ID: ${{ secrets.LOOKER_CLIENT_ID }}
+      LOOKERSDK_CLIENT_SECRET: ${{ secrets.LOOKER_CLIENT_SECRET }}
+      SNOWFLAKE_PROD_PASSWORD: ${{ secrets.SNOWFLAKE_PROD_PASSWORD }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Apply Configuration
+        run: |
+          echo "Applying for environment: ${{ matrix.environment }}"
+          python main.py --apply --config-dir environments/${{ matrix.environment }}

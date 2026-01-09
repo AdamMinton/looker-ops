@@ -1,0 +1,18 @@
+enabled: true
+identifier: "google_workspace"
+display_name: "Google Login"
+issuer: "https://accounts.google.com"
+client_id: "123456.apps.googleusercontent.com"
+client_secret_env_var: "OIDC_CLIENT_SECRET"
+authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth"
+token_endpoint: "https://oauth2.googleapis.com/token"
+user_attribute_map:
+  email: "email"
+  first_name: "given_name"
+  last_name: "family_name"
+groups_attribute: "groups"
+scopes: ["openid", "email", "profile"]
+userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo"
+# Audience is typically the Client ID for Google OIDC
+# Using the dummy client_id from config for now
+audience: "123456.apps.googleusercontent.com"

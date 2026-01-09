@@ -1,0 +1,7 @@
+- name: "bq_sales"
+  dialect_name: "bigquery_standard_sql"
+  host: "adamminton-sandbox"            # Project ID
+  database: "SALES_DB"              # Dataset
+  uses_application_default_credentials: true
+  max_connections: 30
+  pool_timeout: 120
