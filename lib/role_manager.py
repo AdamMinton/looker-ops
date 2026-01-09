@@ -8,6 +8,7 @@ class RoleManager:
         self.perm_set_map = {} # Name -> ID
         self.model_set_map = {} # Name -> ID
         self.role_map = {} # Name -> ID
+        self.role_objects = {} # Name -> Role Object
 
     def _load_current_state(self):
         """Fetch all existing sets and roles to build ID maps."""
@@ -19,6 +20,7 @@ class RoleManager:
             
         for r in self.sdk.all_roles():
             self.role_map[r.name] = r.id
+            self.role_objects[r.name] = r
 
     def _resolve_ids(self, role_config):
         """Resolve Permission Set and Model Set Names to IDs."""
@@ -100,8 +102,8 @@ class RoleManager:
             target_ps_name = r_cfg.get('permission_set')
             target_ms_name = r_cfg.get('model_set')
             
-            if r_name in self.role_map:
-                current_r = self.sdk.role(self.role_map[r_name])
+            if r_name in self.role_objects:
+                current_r = self.role_objects[r_name]
                 
                 curr_ps_id = current_r.permission_set.id if current_r.permission_set else None
                 curr_ms_id = current_r.model_set.id if current_r.model_set else None
@@ -119,6 +121,11 @@ class RoleManager:
                     changes.append(f"Model Set: '{curr_ms_name}' -> '{target_ms_name}'")
                 
                 if changes:
+                    # SAFETY CHECK for Admin
+                    if r_name == 'Admin':
+                         logging.warning(f"Skipping update for protected Role 'Admin'. Detected changes: {changes}")
+                         continue
+                        
                     diffs.append({
                         'action': 'UPDATE_ROLE',
                         'name': r_name,
@@ -135,6 +142,82 @@ class RoleManager:
                     'config': r_cfg
                 })
         
+        # 4. Deletions (Reverse Order of Dependencies for safety, but we calculate them here)
+        # We need to delete Roles first, then Sets.
+        
+        # 4a. Identify Extra Roles
+        config_role_names = {r['name'] for r in config_data.get('roles', [])}
+        for role_name, role_id in self.role_map.items():
+            if role_name not in config_role_names:
+                # SAFETY CHECKS
+                if role_name == 'Admin':
+                    logging.info(f"Skipping deletion of protected Role 'Admin'")
+                    continue
+                
+                # Fallback: Explicit Name Check for Support Roles 
+                # (SDK V4.0 Model does not expose 'is_support_role' attribute despite API returning it)
+                PROTECTED_SUPPORT_ROLES = {
+                    'Support Basic Editor',
+                    'Support Advanced Editor',
+                    'Customer Engineer Advanced Editor',
+                    'Helpdesk User',
+                    'Gemini'
+                }
+                
+                if role_name in PROTECTED_SUPPORT_ROLES:
+                    logging.info(f"Skipping deletion of protected Support Role '{role_name}'")
+                    continue
+                
+                # If we somehow don't have the object but have the ID (unlikely), safe default?
+                # current logic assumes we have it.
+                
+                diffs.append({
+                    'action': 'DELETE_ROLE',
+                    'name': role_name,
+                    'id': role_id,
+                    'changes': 'Role removed from configuration'
+                })
+
+        # 4b. Identify Extra Permission Sets
+        PROTECTED_PERM_SETS = {
+            'Admin', 
+            'Support Basic Editor', 
+            'Support Advanced Editor', 
+            'Customer Engineer Advanced Editor', 
+            'Gemini',
+            'LookML Dashboard User', # Often system-like
+            'User who can\'t view LookML', # Often system-like
+            # Add others if needed
+        }
+        config_perm_names = {p['name'] for p in config_data.get('permission_sets', [])}
+        for ps_name, ps_id in self.perm_set_map.items():
+            if ps_name not in config_perm_names:
+                if ps_name in PROTECTED_PERM_SETS:
+                    logging.info(f"Skipping deletion of protected Permission Set '{ps_name}'")
+                    continue
+                
+                diffs.append({
+                    'action': 'DELETE_PERM_SET',
+                    'name': ps_name,
+                    'id': ps_id,
+                    'changes': 'Permission Set removed from configuration'
+                })
+
+        # 4c. Identify Extra Model Sets
+        config_model_names = {m['name'] for m in config_data.get('model_sets', [])}
+        for ms_name, ms_id in self.model_set_map.items():
+            if ms_name not in config_model_names:
+                if ms_name == 'All':
+                     logging.info(f"Skipping deletion of protected Model Set '{ms_name}'")
+                     continue
+                
+                diffs.append({
+                    'action': 'DELETE_MODEL_SET',
+                    'name': ms_name,
+                    'id': ms_id,
+                    'changes': 'Model Set removed from configuration'
+                })
+        
         return diffs
 
     def apply_changes(self, diffs):
@@ -145,7 +228,29 @@ class RoleManager:
         # Reload state to be fresh
         self._load_current_state()
         
-        # 1. Apply Permission Sets
+        # 0. DELETE ROLES (First, to free up sets)
+        for diff in diffs:
+            if diff['action'] == 'DELETE_ROLE':
+                logging.warning(f"DELETING Role '{diff['name']}'...")
+                self.sdk.delete_role(role_id=diff['id'])
+
+        # 1. DELETE SETS (Only after roles are gone)
+        for diff in diffs:
+            if diff['action'] == 'DELETE_PERM_SET':
+                 logging.warning(f"DELETING Permission Set '{diff['name']}'...")
+                 try:
+                    self.sdk.delete_permission_set(permission_set_id=diff['id'])
+                 except Exception as e:
+                    logging.error(f"Failed to delete Permission Set '{diff['name']}': {e}")
+            
+            if diff['action'] == 'DELETE_MODEL_SET':
+                 logging.warning(f"DELETING Model Set '{diff['name']}'...")
+                 try:
+                    self.sdk.delete_model_set(model_set_id=diff['id'])
+                 except Exception as e:
+                    logging.error(f"Failed to delete Model Set '{diff['name']}': {e}")
+
+        # 2. Apply Permission Sets (Creates/Updates)
         for diff in diffs:
             if diff['action'] == 'CREATE_PERM_SET':
                 logging.info(f"Creating Permission Set '{diff['name']}'...")
@@ -168,7 +273,7 @@ class RoleManager:
                     )
                 )
 
-        # 2. Apply Model Sets
+        # 3. Apply Model Sets (Creates/Updates)
         for diff in diffs:
             if diff['action'] == 'CREATE_MODEL_SET':
                 logging.info(f"Creating Model Set '{diff['name']}'...")
@@ -191,7 +296,7 @@ class RoleManager:
                     )
                 )
 
-        # 3. Apply Roles
+        # 4. Apply Roles (Creates/Updates)
         for diff in diffs:
             if diff['action'] in ['CREATE_ROLE', 'UPDATE_ROLE']:
                 cfg = diff['config']
