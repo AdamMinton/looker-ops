@@ -13,7 +13,7 @@ jobs:
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
-        environment: [dev, prod]
+        environment: [dev]
     environment: ${{ matrix.environment }}
     env:
       # Secrets are now scoped to the environment automatically
@@ -64,7 +64,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        environment: [dev, prod]
+        environment: [dev]
     environment: ${{ matrix.environment }}
     env:
       LOOKERSDK_BASE_URL: ${{ secrets.LOOKER_URL }}
