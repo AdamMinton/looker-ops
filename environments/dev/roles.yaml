@@ -1,0 +1,20 @@
+# 1. Permission Sets
+permission_sets:
+  - name: "Finance User Perms"
+    permissions:
+      - "access_data"
+      - "see_looks"
+      - "see_user_dashboards"
+      - "explore"
+
+# 2. Model Sets
+model_sets:
+  - name: "Finance Models"
+    models:
+      - "thelook" # Using 'thelook' as it likely exists or is harmless model name for sample
+
+# 3. Roles
+roles:
+  - name: "Finance Analyst"
+    permission_set: "Finance User Perms"
+    model_set: "Finance Models"

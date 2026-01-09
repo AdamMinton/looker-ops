@@ -5,6 +5,7 @@ import yaml
 import looker_sdk
 from lib.connection_manager import ConnectionManager
 from lib.oidc_manager import OIDCManager
+from lib.role_manager import RoleManager
 
 def load_config(path):
     with open(path, 'r') as f:
@@ -73,43 +74,70 @@ def main():
     oidc_manager = OIDCManager(sdk)
 
     # Execution
+    from lib.utils import format_diff
+
+    # 1. Connection Management
     print("\n--- Connection Management ---")
     conn_diff = conn_manager.get_diff(connections_config)
     if not conn_diff:
         print("No changes detected for Connections.")
     else:
         for item in conn_diff:
-            # Use utils formatter or custom print
-            from lib.utils import format_diff
             print(format_diff(item['action'], 'Connection', item['name'], item['changes']))
-        
-        if args.apply:
-            print("Applying Connection changes...")
-            conn_manager.apply_changes(conn_diff)
 
-    # OIDC Management
+    # 2. OIDC Management
+    oidc_diff = []
     if oidc_config:
         print("\n--- OIDC Management ---")
-        # OIDC Manager will need similar refactoring to return structured diffs
-        # For now, if OIDCManager returns strings, this might break. 
-        # I will update OIDCManager next.
         oidc_diff = oidc_manager.get_diff(oidc_config)
         if not oidc_diff:
             print("No changes detected for OIDC.")
         else:
-            # Assuming OIDCManager is also refactored
-             if isinstance(oidc_diff[0], dict):
+            # Handle legacy list-of-strings if check fails (but we expect dicts now)
+            if oidc_diff and isinstance(oidc_diff[0], dict):
                  for item in oidc_diff:
-                      from lib.utils import format_diff
                       print(format_diff(item['action'], 'OIDC Config', 'Global', item['changes']))
-                 
-                 if args.apply:
-                    print("Applying OIDC changes...")
-                    oidc_manager.apply_changes(oidc_diff)
-             else:
-                 # Legacy string support if I don't update it in time
+            else:
                  for change in oidc_diff:
                      print(change)
+
+    # 3. Roles Management
+    print("\n--- Roles Management ---")
+    roles_file = args.config_dir + "/roles.yaml"
+    roles_diff = []
+    
+    if os.path.exists(roles_file):
+        with open(roles_file, "r") as f:
+            roles_config = yaml.safe_load(f)
+        
+        role_mgr = RoleManager(sdk)
+        roles_diff = role_mgr.get_diff(roles_config)
+        if not roles_diff:
+            print("No changes detected for Roles.")
+        else:
+             for item in roles_diff:
+                print(format_diff(item['action'], 'Role Object', item['name'], item['changes']))
+    else:
+        # Check if roles.yaml was expected? For now just be silent or log info if missing
+        # print(f"No roles.yaml found at {roles_file}") 
+        pass
+
+    # APPLY PHASE
+    if args.apply:
+        print("\n=== Applying Changes ===")
+        if conn_diff:
+            print("Applying Connection changes...")
+            conn_manager.apply_changes(conn_diff)
+        
+        if oidc_diff:
+            print("Applying OIDC changes...")
+            oidc_manager.apply_changes(oidc_diff)
+            
+        if roles_diff:
+            print("Applying Roles changes...")
+            role_mgr.apply_changes(roles_diff)
+    else:
+        print("\nRun with --apply to execute changes.")
 
 if __name__ == "__main__":
     main()

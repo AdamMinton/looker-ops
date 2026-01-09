@@ -21,7 +21,7 @@ audience: "123456.apps.googleusercontent.com"
 set_roles_from_groups: true # This turns on "Mirror OpenID Connect Groups" switch
 mirrored_groups:
   - name: "oidc-admin-group" # The name of the group in your IdP
-    role_ids: ["2"] # Admin Role ID
+    roles: ["Admin"] # Role Name instead of ID
 
 # Advanced Role Management
 allow_direct_roles: false

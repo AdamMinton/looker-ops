@@ -33,6 +33,30 @@ class OIDCManager:
         # Map mirrored_groups -> groups_with_role_ids
         mirrored = cfg.pop('mirrored_groups', None)
         if mirrored:
+            # We need to resolve Role Names to IDs here too, otherwise Diff will show "names vs ids" mismatch
+            # or we need to standardize on IDs for the internal model comparison.
+            # Ideally we fetch roles once. But this method is called before get_diff logic.
+            # Best place is to resolve it here if we can instantiate SDK?
+            # self.sdk is available.
+            
+            try:
+                all_roles = self.sdk.all_roles()
+                role_map = {r.name: r.id for r in all_roles}
+                
+                for m in mirrored:
+                    if 'roles' in m:
+                        r_ids = []
+                        for r_name in m.pop('roles'): # Remove 'roles' key, replace with 'role_ids'
+                            if r_name in role_map:
+                                r_ids.append(role_map[r_name])
+                            else:
+                                # We can't print warning easily here without spamming?
+                                pass 
+                        m['role_ids'] = r_ids
+            except Exception as e:
+                # If SDK fails (e.g. connectivity) strictly here, we might just pass through
+                print(f"Warning: Could not resolve role names: {e}")
+
             cfg['groups_with_role_ids'] = mirrored
 
         # Remove unsupported fields
@@ -158,9 +182,28 @@ class OIDCManager:
 
                 groups_data = cfg.get('groups_with_role_ids')
                 if groups_data and isinstance(groups_data, list):
+                    # Fetch all roles for name resolution if needed
+                    all_roles = self.sdk.all_roles()
+                    role_map = {r.name: r.id for r in all_roles}
+                    
                     group_objs = []
                     for g in groups_data:
                         if isinstance(g, dict):
+                             # Resolve 'roles' (names) to 'role_ids'
+                             if 'roles' in g:
+                                 resolved_ids = []
+                                 for r_name in g['roles']:
+                                     if r_name in role_map:
+                                         resolved_ids.append(role_map[r_name])
+                                     else:
+                                         print(f"WARNING: Role '{r_name}' not found for group '{g.get('name')}'. Skipping.")
+                                 
+                                 # Merge with any existing role_ids or overwrite?
+                                 # Let's assume 'roles' supersedes 'role_ids' if present, or we combine.
+                                 # Implementation Plan said "Deprecate role_ids in favor of roles".
+                                 # We'll use the resolved list.
+                                 g['role_ids'] = resolved_ids
+                                 
                              # Only pass valid fields to OIDCGroupWrite
                              g_clean = {k: v for k, v in g.items() if k in ['name', 'role_ids']}
                              

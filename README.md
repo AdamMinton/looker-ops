@@ -113,6 +113,38 @@ allow_direct_roles: false
 allow_normal_group_membership: false
 allow_roles_from_normal_groups: false
 auth_requires_role: false
+# Advanced Options (Optional)
+allow_direct_roles: false
+allow_normal_group_membership: false
+allow_roles_from_normal_groups: false
+auth_requires_role: false
+```
+
+### 3. Roles & Permissions (`roles.yaml`)
+Define your **Permission Sets**, **Model Sets**, and **Roles** by name. The tool automatically resolves dependencies.
+
+```yaml
+# 1. Permission Sets
+permission_sets:
+  - name: "Finance User Perms"
+    permissions:
+      - "access_data"
+      - "see_looks"
+      - "see_user_dashboards"
+      - "explore"
+
+# 2. Model Sets
+model_sets:
+  - name: "Finance Models"
+    models:
+      - "finance_sales"
+      - "finance_marketing"
+
+# 3. Roles
+roles:
+  - name: "Finance Analyst"
+    permission_set: "Finance User Perms" # Referenced by Name
+    model_set: "Finance Models"          # Referenced by Name
 ```
 
 ## 🔐 Secret Management

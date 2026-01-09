@@ -18,9 +18,9 @@ def format_diff(action: str, resource_type: str, resource_name: str, changes: li
     Standard formatter for diffs.
     action: 'CREATE', 'UPDATE', 'NO_CHANGE'
     """
-    if action == 'CREATE':
-        return f"[+] CREATE {resource_type} '{resource_name}'"
-    elif action == 'UPDATE':
-        return f"[~] UPDATE {resource_type} '{resource_name}':\n    - " + "\n    - ".join(changes)
+    if action.startswith('CREATE'):
+        return f"[+] {action} {resource_type} '{resource_name}'" + (f": {changes}" if changes else "")
+    elif action.startswith('UPDATE'):
+        return f"[~] {action} {resource_type} '{resource_name}':\n    - " + "\n    - ".join(changes.split(', ')) if isinstance(changes, str) else changes
     else:
-         return f"    {resource_type} '{resource_name}': No changes"
+         return f"    {resource_type} '{resource_name}': No changes ({action})"
