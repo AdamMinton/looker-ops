@@ -7,6 +7,12 @@ permission_sets:
       - "see_looks"
       - "see_user_dashboards"
       - "explore"
+  - name: "Finance User Perms 2"
+    permissions:
+      - "access_data"
+      - "see_looks"
+      - "see_user_dashboards"
+      - "explore"
 
 # 2. Model Sets
 model_sets:
