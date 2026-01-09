@@ -16,3 +16,15 @@ userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo"
 # Audience is typically the Client ID for Google OIDC
 # Using the dummy client_id from config for now
 audience: "123456.apps.googleusercontent.com"
+
+# Mirroring Configuration
+set_roles_from_groups: true # This turns on "Mirror OpenID Connect Groups" switch
+mirrored_groups:
+  - name: "oidc-admin-group" # The name of the group in your IdP
+    role_ids: ["2"] # Admin Role ID
+
+# Advanced Role Management
+allow_direct_roles: false
+allow_normal_group_membership: false
+allow_roles_from_normal_groups: false
+auth_requires_role: false

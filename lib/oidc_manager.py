@@ -30,6 +30,11 @@ class OIDCManager:
                 # Custom attributes handling would differ (likely user_attributes_with_ids)
                 # For now, we ignore unknown keys to prevent crashes.
 
+        # Map mirrored_groups -> groups_with_role_ids
+        mirrored = cfg.pop('mirrored_groups', None)
+        if mirrored:
+            cfg['groups_with_role_ids'] = mirrored
+
         # Remove unsupported fields
         cfg.pop('display_name', None) # Not supported in OIDCConfig
         cfg.pop('client_secret', None) # Ensure we don't pass this if it was in yaml
@@ -67,6 +72,57 @@ class OIDCManager:
                          target_val = sorted(target_val)
                          current_val = sorted(current_val)
 
+                 if key == 'groups_with_role_ids':
+                     # Special comparison for list of objects vs list of dicts
+                     # We convert current_val (Models) to clean dicts (no IDs) for comparison
+                     # This is a 'best effort' equality check
+                     if isinstance(current_val, list) and isinstance(target_val, list):
+                         current_clean = []
+                         for g in current_val:
+                             # Convert model to dict, ignore 'id', 'looker_group_id'
+                             # g is an OIDCGroupWrite/Read object
+                             # looker_sdk models usually implement __dict__ or comparable
+                             # but easiest is to specific keys we care about
+                             c_item = {
+                                 'name': g.name,
+                                 # 'looker_group_name': g.looker_group_name, # Name is unreliable for diff if we use ID
+                                 # 'looker_group_id': g.looker_group_id, # System assigned, ignore for diff
+                                 'role_ids': g.role_ids or [] # Normalise None to []
+                             }
+                             # Sometimes ID changes on update, or we don't care if names match
+                             # Let's trust that if we set it, it's correct.
+                             # But here we see a diff loop because maybe '9' vs '2'?
+                             # Wait, why is it '9'? 
+                             # User requested '2'.
+                             # API might return a new internal ID for the mapping itself (the 'id' field, not 'looker_group_id')
+                             # But here we compare 'looker_group_id'.
+                             
+                             current_clean.append(c_item)
+                         
+                         # Also ensure target_val has defaults
+                         target_clean = []
+                         for t in target_val:
+                             t_clean = {
+                                 'name': t.get('name'),
+                                 # 'looker_group_name': t.get('looker_group_name'),
+                                 # 'looker_group_id': t.get('looker_group_id'),
+                                 'role_ids': t.get('role_ids', [])
+                             }
+                             target_clean.append(t_clean)
+                         
+                         # Sort by name to be order independent?
+                         # Assuming name is unique
+                         current_clean.sort(key=lambda x: x.get('name') or '')
+                         target_clean.sort(key=lambda x: x.get('name') or '')
+                         
+                         if current_clean != target_clean:
+                             changes.append(f"{key}: {current_clean} -> {target_clean}")
+                     else:
+                         # Fallback
+                         if str(current_val) != str(target_val):
+                             changes.append(f"{key}: '{current_val}' -> '{target_val}'")
+                     continue
+
                  if str(current_val) != str(target_val):
                      changes.append(f"{key}: '{current_val}' -> '{target_val}'")
         
@@ -90,6 +146,34 @@ class OIDCManager:
             if diff['action'] == 'UPDATE':
                 print("Updating OIDC Configuration...")
                 cfg = diff['config']
+                
+                # Fetch current config to check for existing IDs
+                try:
+                    current_conf = self.sdk.oidc_config()
+                    current_groups = current_conf.groups_with_role_ids or []
+                    # Create a map of name -> id
+                    existing_ids = {g.name: g.id for g in current_groups if g.name and g.id}
+                except:
+                    existing_ids = {}
+
+                groups_data = cfg.get('groups_with_role_ids')
+                if groups_data and isinstance(groups_data, list):
+                    group_objs = []
+                    for g in groups_data:
+                        if isinstance(g, dict):
+                             # Only pass valid fields to OIDCGroupWrite
+                             g_clean = {k: v for k, v in g.items() if k in ['name', 'role_ids']}
+                             
+                             # Inject existing ID if name matches, required for updates
+                             g_name = g_clean.get('name')
+                             if g_name and g_name in existing_ids:
+                                 g_clean['id'] = existing_ids[g_name]
+                                 
+                             group_objs.append(models.OIDCGroupWrite(**g_clean))
+                        else:
+                             group_objs.append(g)
+                    cfg['groups_with_role_ids'] = group_objs
+
                 # clean cfg?
                 clean_cfg = {k: v for k, v in cfg.items() if v is not None}
                 

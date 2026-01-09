@@ -72,6 +72,13 @@ Define your database connections in a list. Use `password_env_var` or `certifica
   username: "looker_service_account"
   password_env_var: "SNOWFLAKE_PROD_PASSWORD" # Resolves $SNOWFLAKE_PROD_PASSWORD at runtime
   ssl: true
+
+- name: "bq_sales_analytics"
+  dialect_name: "bigquery_standard_sql"
+  host: "my-gcp-project-id"        # For BigQuery, Host = Project ID
+  database: "SALES_DATASET"        # For BigQuery, Database = Dataset Name
+  uses_application_default_credentials: true
+  max_connections: 50
 ```
 
 ### 2. OIDC Authentication (`oidc.yaml`)
@@ -94,6 +101,18 @@ user_attribute_map:
   first_name: "given_name"
   last_name: "family_name"
 groups_attribute: "groups"
+
+# Mirroring (Optional)
+set_roles_from_groups: true # REQUIRED to enable Group Mirroring
+mirrored_groups:
+  - name: "oidc-admin-group" # Name of the group claim value from IdP
+    role_ids: ["2"] # List of Role IDs to assign to this group
+
+# Advanced Options (Optional)
+allow_direct_roles: false
+allow_normal_group_membership: false
+allow_roles_from_normal_groups: false
+auth_requires_role: false
 ```
 
 ## 🔐 Secret Management
