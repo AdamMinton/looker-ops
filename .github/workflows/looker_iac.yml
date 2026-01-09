@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  pull-requests: write
+
 jobs:
   plan:
     name: 'Plan: ${{ matrix.environment }}'
@@ -13,7 +16,7 @@ jobs:
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
-        environment: [dev, prod]
+        environment: [dev]
     environment: ${{ matrix.environment }}
     env:
       # Secrets are now scoped to the environment automatically
@@ -52,10 +55,12 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
+                // Fixed: Added closing backtick at the very end
                 body: `### 📋 Looker Configuration Plan (${env})\n\n\`\`\`diff\n` + plan + `\n\`\`\``
               });
             } catch (err) {
-              console.log("Error reading plan output or posting comment:", err);
+              // Improvement: Mark step as failed if error occurs
+              core.setFailed(`Error posting plan: ${err.message}`);
             }
 
   apply:
@@ -64,7 +69,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        environment: [dev, prod]
+        environment: [dev]
     environment: ${{ matrix.environment }}
     env:
       LOOKERSDK_BASE_URL: ${{ secrets.LOOKER_URL }}
