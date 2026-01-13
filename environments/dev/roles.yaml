@@ -74,7 +74,7 @@ permission_sets:
   - gemini_in_looker
   - save_agents
   - upload_data
-- name: Marketplace Automation (4a66e5)
+- name: Marketplace Automation (aa3fba)
   permissions:
   - deploy
   - develop
@@ -102,9 +102,13 @@ roles:
 - name: Conversational Analytics Agent Manager
   permission_set: Conversational Analytics Agent Manager
   model_set: All
-- name: Marketplace Automation (4a66e5)
-  permission_set: Marketplace Automation (4a66e5)
+- name: Marketplace Automation (aa3fba)
+  permission_set: Marketplace Automation (aa3fba)
   model_set: All
 - name: Finance User
   permission_set: User
   model_set: Finance Models
+- name: Finance Developer
+  permission_set: Developer
+  model_set: Finance Models
+  
