@@ -51,6 +51,23 @@ This file documents specific operational context for this repository.
     - **Support Roles**: The SDK API returns `is_support_role` in some versions, but we fallback to a hardcoded list of protected names (e.g., `Support Basic Editor`, `Gemini`) to prevent accidental deletion.
     - **Admin**: The `Admin` role and its associated sets are strictly ignored during updates and deletions to prevent lockout.
 
+### Folder & Content Access
+1.  **Dual-Entity Model**:
+    -   **Folders** (`sdk.create_folder`) are purely containers. They do not hold access rules directly.
+    -   **Access Control** is managed via **Content Metadata** (`sdk.content_metadata`, `sdk.create_content_metadata_access`).
+    -   *Crucial*: You must fetch the `content_metadata_id` from the folder object before you can modify its permissions.
+2.  **Inheritance Blocking**:
+    -   The Looker API often rejects addition of custom access rules if `inherits` is set to `True` (default).
+    -   **Strategy**: We explicitly set `inherits=False` (`sdk.update_content_metadata`) for any folder managed by our config.
+3.  **The "Copy on Break" Behavior & `SYNC_ACCESS`**:
+    -   When you disable inheritance, Looker *copies* the parent's existing permissions to the child.
+    -   This means if you break inheritance and immediately try to "add" a permission that was already inherited, you get an `Already have that access level` error.
+    -   **Solution**: Implement a `SYNC_ACCESS` pattern: Break inheritance -> Fetch fresh (copied) permissions -> Diff against config -> Reconcile (Add missing / Remove extra).
+4.  **SDK Enum Pitfall**:
+    -   `sdk.all_content_metadata_accesses()` returns permissions as Enums (e.g., `<PermissionType.view: 'view'>`).
+    -   If you compare this directly to a string from YAML (`'view'`), the check fails, causing redundant update attempts.
+    -   **Fix**: Always cast SDK permission values to `str()` before comparison.
+
 ## Running the Tool
 - **Plan (Check)**: `python3 main.py --config-dir environments/dev --check`
 - **Apply**: `python3 main.py --config-dir environments/dev --apply`

@@ -1,0 +1,17 @@
+folders:
+  - name: "Shared"
+    access:
+      - group: "All Users"
+        permission: "view"
+  - name: "Finance"
+    parent: "Shared"
+    access:
+      - group: "finance-user-group"
+        permission: "view"
+      - group: "finance-developer-group"
+        permission: "edit"
+  - name: "Marketing"
+    parent: "Shared"
+    access:
+      - group: "All Users"
+        permission: "view"

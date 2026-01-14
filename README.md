@@ -159,17 +159,26 @@ roles:
     permission_set: "Finance User Perms" # Referenced by Name
     model_set: "Finance Models"          # Referenced by Name
 
-### 4. Projects & Models (`projects.yaml`)
-Define your **Projects** and their **LookML Models**. This handles the creation of the project container and configures the models to allowed database connections.
+### 5. Content Folders (`folders.yaml`)
+Manage Looker Content Folders and access controls (ACLs). 
+*   **Idempotent Creation**: Creates folders if they don't exist.
+*   **Structure**: Supports hierarchical folder structures via `parent` reference.
+*   **Access Control**: Manages `view` and `edit` access for Groups and Users.
+    *   **Note**: Managed folders explicitly disable inheritance (`inherits: false`) to ensure strict access control.
 
 ```yaml
-projects:
-- name: "Finance"                        # Project ID / Name
-  models:
-    - model_name: "thelook"              # LookML Model Name
-      connection_names:
-           - "snowflake_sales_prod"      # Allowed Database Connections
-```
+- name: "Shared"
+  access: 
+    - group: "All Users"
+      permission: "view"
+
+- name: "Finance"
+  parent: "Shared"
+  access:
+    - group: "Finance Team"
+      permission: "edit"
+    - user: "alice@example.com"
+      permission: "view"
 ```
 
 ### ⚠️ Deletions & Safety
@@ -187,6 +196,9 @@ The tool runs a comprehensive **Validator** at startup before any actions (Check
 2.  **Role Dependencies**: Roles must reference Permission Sets and Model Sets that are defined in the YAML or are known system sets (e.g. `Admin`).
 3.  **OIDC Integrity**: Groups in `oidc.yaml` must reference Roles that exist in `roles.yaml` or on the instance.
 4.  **Project Connections**: Models in `projects.yaml` must reference Connections that exist in `connections.yaml` or on the instance.
+5.  **Folder Integrity**:
+    *   **Group Existence**: Groups referenced in `folders.yaml` must exist on the instance or be defined in `oidc.yaml`.
+    *   **User Existence**: Users referenced by email in `folders.yaml` must exist on the instance.
 
 **Note**: If validation fails, the tool will exit with an error code and a list of specific issues to fix.
 

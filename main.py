@@ -8,6 +8,7 @@ from lib.connection_manager import ConnectionManager
 from lib.oidc_manager import OIDCManager
 from lib.role_manager import RoleManager
 from lib.project_manager import ProjectManager
+from lib.folder_manager import FolderManager
 from lib.utils import setup_logging, format_diff
 from lib.validator import Validator
 
@@ -44,11 +45,13 @@ def main():
     # Load Configs
     connections_path = os.path.join(args.config_dir, 'connections.yaml')
     projects_path = os.path.join(args.config_dir, 'projects.yaml')
+    folders_path = os.path.join(args.config_dir, 'folders.yaml')
     oidc_path = os.path.join(args.config_dir, 'oidc.yaml')
     roles_path = os.path.join(args.config_dir, 'roles.yaml')
     
     connections_config = load_config(connections_path) if os.path.exists(connections_path) else []
     projects_config = load_config(projects_path) if os.path.exists(projects_path) else []
+    folders_config = load_config(folders_path).get('folders', []) if os.path.exists(folders_path) else []
     oidc_config = load_config(oidc_path) if os.path.exists(oidc_path) else None
     
     roles_config = None
@@ -61,6 +64,7 @@ def main():
     project_manager = ProjectManager(sdk)
     oidc_manager = OIDCManager(sdk)
     role_mgr = RoleManager(sdk)
+    folder_manager = FolderManager(sdk)
 
     # Validation
     logging.info("Validating configuration...")
@@ -69,7 +73,8 @@ def main():
         roles_config=roles_config,
         oidc_config=oidc_config,
         connections_config=connections_config,
-        projects_config=projects_config
+        projects_config=projects_config,
+        folders_config=folders_config
     )
     try:
         validator.validate()
@@ -133,6 +138,24 @@ def main():
                 rtype = 'Model'
             print(format_diff(item['action'], rtype, item['name'], item['changes']))
 
+    # 5. Folder Management
+    print("\n--- Folder Management ---")
+    folder_diffs = folder_manager.get_diff(folders_config)
+    
+    if not folder_diffs:
+        print("No changes detected for Folders.")
+    else:
+        for diff in folder_diffs:
+            print(f"[-] {diff['action']} {diff['name']}")
+            if 'changes' in diff:
+                 for ch in diff['changes']:
+                            if ch['action'] == 'UPDATE_INHERITANCE':
+                                print(f"   UPDATE_INHERITANCE {ch['value']}")
+                            elif ch['action'] == 'SYNC_ACCESS':
+                                print(f"   SYNC_ACCESS (Reconcile permissions)")
+                            else:
+                                print(f"   {ch['action']} {ch.get('type', '?')} {ch.get('id', '?')}")
+
     # APPLY PHASE
     if args.apply:
         print("\n=== Applying Changes ===")
@@ -151,6 +174,10 @@ def main():
         if projects_diff:
             logging.info("Applying Project changes...")
             project_manager.apply_changes(projects_diff)
+
+        if folder_diffs:
+            logging.info("Applying Folder changes...")
+            folder_manager.apply_changes(folder_diffs)
     else:
         print("\nRun with --apply to execute changes.")
 
