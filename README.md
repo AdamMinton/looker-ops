@@ -9,6 +9,7 @@ This repository contains a **GitOps** solution for managing Looker instance conf
 *   **Secure**: Secrets (passwords, private keys) are **never** stored in plain text. They are referenced by Environment Variable names in the configuration and resolved at runtime.
 *   **Safe RBAC Deletion**: Removes roles and permission sets that are no longer in your configuration, with built-in safeguards to protect critical system resources (e.g., Admin, Support roles).
 *   **Project & Model Management**: Automates the creation of Looker Projects and the configuration of LookML Models, linking them to specific database connections.
+*   **Strict Configuration Validation**: Enforces referential integrity at startup. Validates that all Roles, Permissions, OIDC Groups, and Project Connections are correctly defined and linked before execution.
 *   **CI/CD Integrated**: Designed to run within GitHub Actions, providing "Plan" (PR comments) and "Apply" (Merge to Main) workflows.
 
 ## 📂 Project Structure
@@ -177,6 +178,17 @@ However, strict safety rules are enforced:
 *   **Admin Role**: The `Admin` role is never deleted and its definition (sets) cannot be updated via this tool.
 *   **Support Roles**: Roles like `Support Basic Editor`, `Gemini`, etc., are protected from deletion.
 *   **System Sets**: The `Admin` Permission Set and `All` Model Set are protected.
+
+## 🛡️ Configuration Validation
+
+The tool runs a comprehensive **Validator** at startup before any actions (Check or Apply) are taken. It ensures:
+
+1.  **Permissions**: Every permission listed in `roles.yaml` must exist in the Looker API.
+2.  **Role Dependencies**: Roles must reference Permission Sets and Model Sets that are defined in the YAML or are known system sets (e.g. `Admin`).
+3.  **OIDC Integrity**: Groups in `oidc.yaml` must reference Roles that exist in `roles.yaml` or on the instance.
+4.  **Project Connections**: Models in `projects.yaml` must reference Connections that exist in `connections.yaml` or on the instance.
+
+**Note**: If validation fails, the tool will exit with an error code and a list of specific issues to fix.
 
 ## 🔐 Secret Management
 
