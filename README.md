@@ -8,6 +8,7 @@ This repository contains a **GitOps** solution for managing Looker instance conf
 *   **Multi-Environment Support**: Manage disjoint environments (e.g., `dev`, `prod`) with separate configuration trees while sharing the same management logic.
 *   **Secure**: Secrets (passwords, private keys) are **never** stored in plain text. They are referenced by Environment Variable names in the configuration and resolved at runtime.
 *   **Safe RBAC Deletion**: Removes roles and permission sets that are no longer in your configuration, with built-in safeguards to protect critical system resources (e.g., Admin, Support roles).
+*   **Project & Model Management**: Automates the creation of Looker Projects and the configuration of LookML Models, linking them to specific database connections.
 *   **CI/CD Integrated**: Designed to run within GitHub Actions, providing "Plan" (PR comments) and "Apply" (Merge to Main) workflows.
 
 ## 📂 Project Structure
@@ -18,16 +19,19 @@ looker-ops/
 ├── lib/                           # Core Logic
 │   ├── connection_manager.py      # Diff/Apply logic for Database Connections
 │   ├── oidc_manager.py            # Diff/Apply logic for OIDC Auth
+│   ├── project_manager.py         # Diff/Apply logic for Projects & Models
 │   ├── role_manager.py            # Diff/Apply logic for Roles/Permissions
 │   └── utils.py                   # Helper functions (Config parsing, Secret resolution)
 ├── environments/                  # Environment-specific Configurations
 │   ├── dev/
 │   │   ├── connections.yaml
 │   │   ├── oidc.yaml
+│   │   ├── projects.yaml
 │   │   └── roles.yaml
 │   └── prod/
 │       ├── connections.yaml
 │       ├── oidc.yaml
+│       ├── projects.yaml
 │       └── roles.yaml
 ├── requirements.txt               # Python Dependencies
 └── .github/
@@ -151,9 +155,20 @@ roles:
     model_set: "Finance Models"          # Referenced by Name
 # 3. Roles
 roles:
-  - name: "Finance Analyst"
     permission_set: "Finance User Perms" # Referenced by Name
     model_set: "Finance Models"          # Referenced by Name
+
+### 4. Projects & Models (`projects.yaml`)
+Define your **Projects** and their **LookML Models**. This handles the creation of the project container and configures the models to allowed database connections.
+
+```yaml
+projects:
+- name: "Finance"                        # Project ID / Name
+  models:
+    - model_name: "thelook"              # LookML Model Name
+      connection_names:
+           - "snowflake_sales_prod"      # Allowed Database Connections
+```
 ```
 
 ### ⚠️ Deletions & Safety
@@ -203,7 +218,7 @@ python main.py --apply --config-dir environments/dev
 
 ## 🧪 Unit Testing
 
-The project includes a comprehensive unit test suite covering `RoleManager`, `ConnectionManager`, and `OIDCManager`.
+The project includes a comprehensive unit test suite covering `RoleManager`, `ConnectionManager`, `OIDCManager`, and `ProjectManager`.
 To run the tests:
 
 ```bash

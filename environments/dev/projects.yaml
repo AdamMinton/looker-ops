@@ -1,0 +1,6 @@
+projects:
+- name: "Finance"
+  models:
+    - model_name: "finance"
+      connection_names:
+           - "bq_sales"

@@ -22,6 +22,10 @@ set_roles_from_groups: true # This turns on "Mirror OpenID Connect Groups" switc
 mirrored_groups:
   - name: "oidc-admin-group" # The name of the group in your IdP
     roles: ["Admin"] # Role Name instead of ID
+  - name: "finance-developer-group"
+    roles: ["Finance Developer"]
+  - name: "finance-user-group"
+    roles: ["Finance User"]
 
 # Advanced Role Management
 allow_direct_roles: false
