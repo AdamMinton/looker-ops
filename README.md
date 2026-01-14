@@ -115,7 +115,7 @@ groups_attribute: "groups"
 set_roles_from_groups: true # REQUIRED to enable Group Mirroring
 mirrored_groups:
   - name: "oidc-admin-group" # Name of the group claim value from IdP
-    role_ids: ["2"] # List of Role IDs to assign to this group
+    roles: ["Admin"] # List of Role Names to assign to this group
 
 # Advanced Options (Optional)
 allow_direct_roles: false
