@@ -3,8 +3,9 @@
 This file documents specific operational context for this repository.
 
 ## Environment & Setup
-- **Virtual Environment**: A python venv is located at `venv/` (not `.venv/`).
-    - Activate: `source venv/bin/activate`
+- **Virtual Environment**: A python venv is located at `.venv/`.
+    - Create: `python3 -m venv .venv`
+    - Activate: `source .venv/bin/activate`
 - **Credentials**: A `looker.ini` file exists in the root.
     - `main.py` is configured to fallback to the `[test]` section if standard environment variable init fails.
     - Useful for local `plan` checks (read-only) even if full write credentials aren't exported.
