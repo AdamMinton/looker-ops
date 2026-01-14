@@ -7,6 +7,7 @@ import logging
 from lib.connection_manager import ConnectionManager
 from lib.oidc_manager import OIDCManager
 from lib.role_manager import RoleManager
+from lib.project_manager import ProjectManager
 from lib.utils import setup_logging, format_diff
 
 def load_config(path):
@@ -41,10 +42,12 @@ def main():
 
     # Load Configs
     connections_path = os.path.join(args.config_dir, 'connections.yaml')
+    projects_path = os.path.join(args.config_dir, 'projects.yaml')
     oidc_path = os.path.join(args.config_dir, 'oidc.yaml')
     roles_path = os.path.join(args.config_dir, 'roles.yaml')
     
     connections_config = load_config(connections_path) if os.path.exists(connections_path) else []
+    projects_config = load_config(projects_path) if os.path.exists(projects_path) else []
     oidc_config = load_config(oidc_path) if os.path.exists(oidc_path) else None
     
     roles_config = None
@@ -54,6 +57,7 @@ def main():
 
     # Managers
     conn_manager = ConnectionManager(sdk)
+    project_manager = ProjectManager(sdk)
     oidc_manager = OIDCManager(sdk)
     role_mgr = RoleManager(sdk)
 
@@ -101,6 +105,18 @@ def main():
                 
                 print(format_diff(item['action'], rtype, item['name'], item['changes']))
 
+    # 4. Project Management
+    print("\n--- Project Management ---")
+    projects_diff = project_manager.get_diff(projects_config.get('projects', []))
+    if not projects_diff:
+        print("No changes detected for Projects.")
+    else:
+        for item in projects_diff:
+            rtype = 'Project'
+            if 'MODEL' in item['action']:
+                rtype = 'Model'
+            print(format_diff(item['action'], rtype, item['name'], item['changes']))
+
     # APPLY PHASE
     if args.apply:
         print("\n=== Applying Changes ===")
@@ -115,6 +131,10 @@ def main():
         if roles_diff:
             logging.info("Applying Roles changes...")
             role_mgr.apply_changes(roles_diff)
+
+        if projects_diff:
+            logging.info("Applying Project changes...")
+            project_manager.apply_changes(projects_diff)
     else:
         print("\nRun with --apply to execute changes.")
 
