@@ -9,6 +9,7 @@ from lib.oidc_manager import OIDCManager
 from lib.role_manager import RoleManager
 from lib.project_manager import ProjectManager
 from lib.utils import setup_logging, format_diff
+from lib.validator import Validator
 
 def load_config(path):
     with open(path, 'r') as f:
@@ -60,6 +61,21 @@ def main():
     project_manager = ProjectManager(sdk)
     oidc_manager = OIDCManager(sdk)
     role_mgr = RoleManager(sdk)
+
+    # Validation
+    logging.info("Validating configuration...")
+    validator = Validator(
+        sdk=sdk,
+        roles_config=roles_config,
+        oidc_config=oidc_config,
+        connections_config=connections_config,
+        projects_config=projects_config
+    )
+    try:
+        validator.validate()
+    except ValueError as e:
+        logging.error(e)
+        sys.exit(1)
 
     # Execution
 
